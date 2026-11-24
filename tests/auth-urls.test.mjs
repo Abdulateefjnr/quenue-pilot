@@ -49,20 +49,35 @@ test("rejects insecure or non-origin production URLs", () => {
   );
 });
 
-test("allows localhost HTTP only while Next is collecting build data", () => {
+test("allows loopback HTTP for local production runs", () => {
   assert.equal(
     resolveAuthUrls({
       NODE_ENV: "production",
-      NEXT_PHASE: "phase-production-build",
       NEXT_PUBLIC_APP_URL: "http://localhost:3000",
     }).appUrl,
     "http://localhost:3000",
+  );
+  assert.equal(
+    resolveAuthUrls({
+      NODE_ENV: "production",
+      NEXT_PUBLIC_APP_URL: "http://127.0.0.1:3000",
+    }).appUrl,
+    "http://127.0.0.1:3000",
   );
   assert.throws(
     () =>
       resolveAuthUrls({
         NODE_ENV: "production",
+        RENDER_EXTERNAL_URL: "https://quenue-pilot.onrender.com",
         NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+      }),
+    /must use HTTPS in production/,
+  );
+  assert.throws(
+    () =>
+      resolveAuthUrls({
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "http://app.example.com",
       }),
     /must use HTTPS in production/,
   );

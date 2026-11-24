@@ -1,4 +1,4 @@
-function normalizeOrigin(value, variableName, production) {
+function normalizeOrigin(value, variableName, production, allowLocalHttp) {
   let url;
   try {
     url = new URL(value);
@@ -17,7 +17,15 @@ function normalizeOrigin(value, variableName, production) {
     throw new Error(`${variableName} must contain only an HTTP(S) origin.`);
   }
 
-  if (production && url.protocol !== "https:") {
+  const isLoopback =
+    url.hostname === "localhost" ||
+    url.hostname === "127.0.0.1" ||
+    url.hostname === "[::1]";
+  if (
+    production &&
+    url.protocol !== "https:" &&
+    !(isLoopback && allowLocalHttp)
+  ) {
     throw new Error(`${variableName} must use HTTPS in production.`);
   }
 
@@ -40,20 +48,21 @@ export function resolveAuthUrls(env = process.env) {
     );
   }
 
-  const requireHttps =
-    env.NODE_ENV === "production" &&
-    env.NEXT_PHASE !== "phase-production-build";
+  const requireHttps = env.NODE_ENV === "production";
+  const allowLocalHttp = !env.RENDER_EXTERNAL_URL?.trim();
 
   return {
     appUrl: normalizeOrigin(
       configuredAppUrl,
       appUrlSource,
       requireHttps,
+      allowLocalHttp,
     ),
     authUrl: normalizeOrigin(
       configuredAuthUrl,
       env.BETTER_AUTH_URL ? "BETTER_AUTH_URL" : "RENDER_EXTERNAL_URL",
       requireHttps,
+      allowLocalHttp,
     ),
   };
 }
