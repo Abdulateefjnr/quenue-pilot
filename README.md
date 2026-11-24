@@ -53,6 +53,12 @@ Passwords and connection strings stay in `.env.local`; the helper never prints t
 
 Better Auth provides password and optional OAuth sign-in, email verification, password reset, database-backed sessions and rate limits, and organization membership. Platform roles are read from the database on the server; the public signup form cannot grant administrator access. Email delivery requires Resend configuration; OAuth providers remain unavailable until their credentials and callbacks are configured.
 
+For Render, set `NEXT_PUBLIC_APP_URL` and `BETTER_AUTH_URL` to the exact public origin, `https://quenue-pilot.onrender.com` (no trailing slash or path). The app can use Render's automatic `RENDER_EXTERNAL_URL` as a fallback if those values are omitted. Production origins must use HTTPS; do not add wildcard origins or disable origin/CSRF checks. Better Auth's browser client sends cookies with `credentials: "include"`; its auth requests stay on the app origin.
+
+Set `BETTER_AUTH_SECRET` to a unique random value of at least 32 characters, `RESEND_API_KEY` to a valid Resend API key, and `EMAIL_FROM` to a sender address on a verified Resend domain. Email verification remains required before sign-in. Set `QUEUEPILOT_INITIAL_ADMIN_EMAIL` to the first administrator's address if that account needs to create the first facility.
+
+The authentication schema and application tables are managed by the checked-in Drizzle migrations. No schema migration was added for the auth fixes. Before deploying, ensure the production database has migrations `0000` through `0006` applied; run `npm run db:migrate` with `DATABASE_URL_UNPOOLED` pointing at that database if required. Do not use `db:generate` or a development database URL as a production migration substitute.
+
 Required application variables are listed in `.env.example`. `BETTER_AUTH_SECRET`, database credentials, storage credentials, and the Realtime secret must never be exposed to client code or committed to source control.
 
 ## Patient and queue workflow

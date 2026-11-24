@@ -8,6 +8,7 @@ import { db } from "@/app/db";
 import * as schema from "@/app/db/schema";
 import { securityEvents } from "@/app/db/schema";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/app/lib/email";
+import { resolveAuthUrls } from "@/app/lib/auth-urls.mjs";
 
 const statement = {
   organization: ["read", "update", "delete"],
@@ -70,8 +71,7 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_CLIENT_SECRET) {
 }
 
 const authSecret = process.env.BETTER_AUTH_SECRET;
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.BETTER_AUTH_URL;
-const authUrl = process.env.BETTER_AUTH_URL ?? appUrl;
+export const { appUrl, authUrl } = resolveAuthUrls();
 
 function getErrorCode(error: unknown): string | undefined {
   const seen = new Set<object>();
@@ -116,10 +116,6 @@ function sanitizeAuthLogArgument(argument: unknown): unknown {
 if (!authSecret || authSecret.length < 32) {
   throw new Error("BETTER_AUTH_SECRET must be configured with at least 32 characters.");
 }
-if (!appUrl || !authUrl) {
-  throw new Error("BETTER_AUTH_URL and NEXT_PUBLIC_APP_URL must be configured.");
-}
-
 export const auth = betterAuth({
   appName: "QueuePilot",
   baseURL: authUrl,

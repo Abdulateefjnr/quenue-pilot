@@ -40,7 +40,13 @@ export default function LoginPage() {
       });
 
       if (result.error) {
-        setErrorMessage("Email or password is incorrect, or the account needs email verification.");
+        if (result.error.code === "EMAIL_NOT_VERIFIED") {
+          setErrorMessage("Verify your email before signing in. You can request a new verification link.");
+        } else if (result.error.code === "INVALID_ORIGIN") {
+          setErrorMessage("The sign-in request was blocked by the site's security settings. Reload and try again.");
+        } else {
+          setErrorMessage("Sign-in failed. Check your email and password, or request a verification link if needed.");
+        }
         return;
       }
 

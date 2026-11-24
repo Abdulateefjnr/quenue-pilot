@@ -16,6 +16,7 @@ export default function ForgotPasswordPage() {
     try {
       const response = await fetch("/api/auth/request-password-reset", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
@@ -23,13 +24,21 @@ export default function ForgotPasswordPage() {
         }),
       });
 
+      if (response.ok) {
+        setMessage("If an account exists for that address, a password reset link has been sent.");
+      } else if (response.status === 403) {
+        setMessage("The security check blocked this request. Reload the page and try again.");
+      } else if (response.status === 429) {
+        setMessage("Too many reset requests. Wait a minute before trying again.");
+      } else {
+        setMessage("We couldn’t send a reset link right now. Please try again later.");
+      }
+    } catch (error) {
       setMessage(
-        response.ok
-          ? "If an account exists for that address, a password reset link has been sent."
-          : "Unable to request a reset right now. Please try again.",
+        error instanceof Error
+          ? error.message
+          : "Password reset is temporarily unavailable. Please try again.",
       );
-    } catch {
-      setMessage("Password reset is temporarily unavailable. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

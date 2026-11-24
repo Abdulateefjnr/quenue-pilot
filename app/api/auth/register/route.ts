@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { APIError } from "better-auth/api";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/app/db";
 import {
@@ -9,7 +9,7 @@ import {
   securityEvents,
   user,
 } from "@/app/db/schema";
-import { auth } from "@/app/lib/auth";
+import { appUrl, auth } from "@/app/lib/auth";
 import { isEmailConfigured, EmailDeliveryError } from "@/app/lib/email";
 import { registrationSchema } from "@/app/lib/validations";
 
@@ -97,6 +97,33 @@ export async function POST(request: Request) {
     );
   }
 
+  const [existingUser] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, values.email))
+    .limit(1);
+
+  if (existingUser) {
+    await db
+      .update(pendingOrganizations)
+      .set({ userId: existingUser.id })
+      .where(
+        and(
+          eq(pendingOrganizations.email, values.email),
+          isNull(pendingOrganizations.userId),
+        ),
+      );
+    return NextResponse.json(
+      {
+        error:
+          "An account already uses this email. Sign in, or request a new verification email if needed.",
+      },
+      { status: 409 },
+    );
+  }
+
+  const now = new Date();
+  const staleSignupBefore = new Date(now.getTime() - 15 * 60 * 1000);
   const [pending] = await db
     .insert(pendingOrganizations)
     .values({
@@ -106,32 +133,27 @@ export async function POST(request: Request) {
       contactPhone: values.phone || null,
       termsAcceptedAt: new Date(),
     })
-    .onConflictDoNothing()
+    .onConflictDoUpdate({
+      target: pendingOrganizations.email,
+      set: {
+        name: values.organizationName,
+        organizationType: null,
+        contactPhone: values.phone || null,
+        termsAcceptedAt: now,
+        createdAt: now,
+      },
+      setWhere: and(
+        isNull(pendingOrganizations.userId),
+        lt(pendingOrganizations.createdAt, staleSignupBefore),
+      ),
+    })
     .returning({ email: pendingOrganizations.email });
 
   if (!pending) {
-    const [existingUser] = await db
-      .select({ id: user.id })
-      .from(user)
-      .where(eq(user.email, values.email))
-      .limit(1);
-    if (existingUser) {
-      await db
-        .update(pendingOrganizations)
-        .set({ userId: existingUser.id })
-        .where(
-          and(
-            eq(pendingOrganizations.email, values.email),
-            sql`${pendingOrganizations.userId} IS NULL`,
-          ),
-        );
-    }
-
     return NextResponse.json(
       {
-        error: existingUser
-          ? "An account already exists with this email. Sign in or verify your email instead."
-          : "A signup is already in progress for this email. Try signing in or wait before retrying.",
+        error:
+          "A signup is already being processed for this email. Wait a few minutes or request a verification email.",
       },
       { status: 409 },
     );
@@ -149,7 +171,7 @@ export async function POST(request: Request) {
         name: values.name,
         email: values.email,
         password: values.password,
-        callbackURL: `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?verified=true`,
+        callbackURL: `${appUrl}/verify-email?verified=true`,
       },
       headers: requestHeaders,
     });

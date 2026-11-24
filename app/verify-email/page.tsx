@@ -16,6 +16,7 @@ export default function VerifyEmailPage() {
     try {
       const response = await fetch("/api/auth/send-verification-email", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
@@ -23,13 +24,21 @@ export default function VerifyEmailPage() {
         }),
       });
 
+      if (response.ok) {
+        setMessage("If the account needs verification, a new link has been sent.");
+      } else if (response.status === 403) {
+        setMessage("The security check blocked this request. Reload the page and try again.");
+      } else if (response.status === 429) {
+        setMessage("Too many verification requests. Wait a minute before trying again.");
+      } else {
+        setMessage("We couldn’t send a verification link right now. Please try again later.");
+      }
+    } catch (error) {
       setMessage(
-        response.ok
-          ? "If the account needs verification, a new link has been sent."
-          : "Unable to resend the email. Check the address and try again.",
+        error instanceof Error
+          ? error.message
+          : "Email service is temporarily unavailable. Please try again.",
       );
-    } catch {
-      setMessage("Email service is temporarily unavailable. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

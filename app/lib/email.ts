@@ -57,15 +57,23 @@ export async function sendPasswordResetEmail({
   url: string;
 }) {
   const { resend: client, sender } = getEmailSender();
-  const result = await client.emails.send({
-    from: sender,
-    to: email,
-    subject: "Reset your QueuePilot password",
-    text: `Hello ${name},\n\nReset your QueuePilot password using this link:\n${url}\n\nIf you did not request a reset, you can ignore this email.`,
-  });
+  let result: Awaited<ReturnType<typeof client.emails.send>>;
+  try {
+    result = await client.emails.send({
+      from: sender,
+      to: email,
+      subject: "Reset your QueuePilot password",
+      text: `Hello ${name},\n\nReset your QueuePilot password using this link:\n${url}\n\nIf you did not request a reset, you can ignore this email.`,
+    });
+  } catch (error) {
+    throw new EmailDeliveryError("The password reset email could not be sent.", error);
+  }
 
   if (result.error) {
-    throw new EmailDeliveryError("The password reset email could not be sent.");
+    throw new EmailDeliveryError(
+      "The password reset email could not be sent.",
+      result.error,
+    );
   }
 }
 
