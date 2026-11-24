@@ -1,0 +1,1 @@
+ALTER TABLE "pending_organizations" ALTER COLUMN "organization_type" DROP NOT NULL;
